@@ -208,23 +208,38 @@ pub fn decompress_file(
     Ok(())
 }
 
-/// Unpacks an archive with some heuristics
-/// - If the archive contains only one file, it will be extracted to the `output_dir`
-/// - If the archive contains multiple files, it will be extracted to a subdirectory of the
-///   output_dir named after the archive (given by `output_file_path`)
-/// Note: This functions assumes that `output_dir` exists
+// This function is named 'smart_unpack'. It takes four parameters:
+// - 'unpack_fn': a closure that accepts a reference to a Path and returns a Result of type usize.
+// - 'output_dir': a reference to a Path representing the output directory.
+// - 'output_file_path': a reference to a Path representing the path where the file will be written.
+// - 'question_policy': an instance of QuestionPolicy struct which handles user interaction during extraction.
 fn smart_unpack(
-    unpack_fn: impl FnOnce(&Path) -> crate::Result<usize>,
-    output_dir: &Path,
-    output_file_path: &Path,
-    question_policy: QuestionPolicy,
-) -> crate::Result<ControlFlow<(), usize>> {
-    assert!(output_dir.exists());
-    match fs::create_dir(&output_dir) {
-        Ok(_) => info!(accessible, "Directory created at {}", output_dir.display()),
-        Err(e) => info!(accessible, "Failed to create directory at {}, error: {}", output_dir.display(), e),
-    }
-    let files = unpack_fn(output_dir)?;
+    unpack_fn: impl FnOnce(&Path) -> crate::Result<usize>, // Closure that performs some operation on the provided path and returns a result of type usize.
+    output_dir: &Path, // Reference to a Path object pointing to the output directory.
+    output_file_path: &Path, // Reference to a Path object pointing to the location where the file should be created or extracted.
+    _question_policy: QuestionPolicy, // An instance of QuestionPolicy struct used for handling user interactions during extraction.
+) -> crate::Result<ControlFlow<(), usize>> { // The function returns a Result containing either ControlFlow with no value (()) and usize as payload or an error.
 
+    // Logs information about the output directory and file path.
+    info!(
+        accessible,
+         "Debug smart unpack output_dir: {}, output_file_path {}.",
+        nice_directory_display(output_dir),
+        nice_directory_display(output_file_path)
+    );
+
+    // Asserts that the output directory exists. If not, it will panic.
+    assert!(output_dir.exists());
+
+    // Attempts to create a directory at the given 'output_file_path'. If successful, logs success message; otherwise, logs failure message along with the error details.
+    match fs::create_dir(&output_file_path) {
+        Ok(_) => info!(accessible, "Directory created at {}", nice_directory_display(output_file_path)),
+        Err(e) => info!(accessible, "Failed to create directory at {}, error: {}", nice_directory_display(output_file_path), e),
+    }
+
+    // Calls the provided closure on 'output_file_path' and returns its result if successful. Otherwise, propagates the error upwards.
+    let files = unpack_fn(output_file_path)?;
+
+    // Returns a Result wrapping ControlFlow containing no value (()) and the number of extracted files as payload.
     Ok(ControlFlow::Continue(files))
 }
